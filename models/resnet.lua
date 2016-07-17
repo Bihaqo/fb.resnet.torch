@@ -65,6 +65,29 @@ local function createModel(opt)
          :add(ReLU(true))
    end
 
+   -- The basic residual layer block for 18 and 34 layer network, and the
+   -- CIFAR networks with swapout technique
+   local function basicblock_swapout(n, stride)
+      local nInputPlane = iChannels
+      iChannels = n
+
+      local s = nn.Sequential()
+      s:add(Convolution(nInputPlane,n,3,3,stride,stride,1,1))
+      s:add(SBatchNorm(n))
+      s:add(ReLU(true))
+      s:add(Convolution(n,n,3,3,1,1,1,1))
+      s:add(SBatchNorm(n))
+
+      local mask = :random()
+
+      return nn.Sequential()
+         :add(nn.ConcatTable()
+            :add(s)
+            :add(shortcut(nInputPlane, n, stride)))
+         :add(nn.Swapout(true))
+         :add(ReLU(true))
+   end
+
    -- The bottleneck residual layer for 50, 101, and 152 layer networks
    local function bottleneck(n, stride)
       local nInputPlane = iChannels
