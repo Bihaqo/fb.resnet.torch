@@ -10,6 +10,7 @@
 --
 
 local nn = require 'nn'
+require 'SwapoutTorch/Swapout'
 require 'cunn'
 
 local Convolution = cudnn.SpatialConvolution
@@ -67,6 +68,7 @@ local function createModel(opt)
 
    -- The basic residual layer block for 18 and 34 layer network, and the
    -- CIFAR networks with swapout technique
+   layer_idx = 1
    local function basicblock_swapout(n, stride)
       local nInputPlane = iChannels
       iChannels = n
@@ -78,13 +80,14 @@ local function createModel(opt)
       s:add(Convolution(n,n,3,3,1,1,1,1))
       s:add(SBatchNorm(n))
 
-      local mask = :random()
+      local prob = (layer_idx - 1) * (1.0 - opt.swapout) / (depth - 2.0)
+      layer_idx = layer_idx + 2
 
       return nn.Sequential()
          :add(nn.ConcatTable()
             :add(s)
             :add(shortcut(nInputPlane, n, stride)))
-         :add(nn.Swapout(true))
+         :add(nn.Swapout({prob, prob}))
          :add(ReLU(true))
    end
 
@@ -156,13 +159,17 @@ local function createModel(opt)
       iChannels = 16
       print(' | ResNet-' .. depth .. ' CIFAR-10')
 
+      local block = basicblock
+      if opt.swapout ~= 'none' then
+         block = basicblock_swapout
+      end
       -- The ResNet CIFAR-10 model
       model:add(Convolution(3,16,3,3,1,1,1,1))
       model:add(SBatchNorm(16))
       model:add(ReLU(true))
-      model:add(layer(basicblock, 16, n))
-      model:add(layer(basicblock, 32, n, 2))
-      model:add(layer(basicblock, 64, n, 2))
+      model:add(layer(block, 16, n))
+      model:add(layer(block, 32, n, 2))
+      model:add(layer(block, 64, n, 2))
       model:add(Avg(8, 8, 1, 1))
       model:add(nn.View(64):setNumInputDims(3))
       model:add(nn.Linear(64, 10))

@@ -48,6 +48,7 @@ function M.parse(arg)
    cmd:option('-shareGradInput',  'false', 'Share gradInput tensors to reduce memory usage')
    cmd:option('-resetClassifier', 'false', 'Reset the fully connected layer for fine-tuning')
    cmd:option('-nClasses',         0,      'Number of classes in the dataset')
+   cmd:option('-swapout',          'none', 'Swapout pL or none')
    cmd:text()
 
    local opt = cmd:parse(arg or {})
