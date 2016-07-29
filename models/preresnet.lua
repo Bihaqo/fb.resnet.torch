@@ -11,6 +11,7 @@
 --
 
 local nn = require 'nn'
+require 'SwapoutTorch/Swapout'
 require 'cunn'
 
 local Convolution = cudnn.SpatialConvolution
@@ -79,6 +80,37 @@ local function createModel(opt)
             :add(s)
             :add(shortcut(nInputPlane, n, stride)))
          :add(nn.CAddTable(true))
+   end
+
+   -- The basic residual layer block for 18 and 34 layer network, and the
+   -- CIFAR networks
+   layer_idx = 1
+   local function basicblock_swapout(n, stride, type)
+      local nInputPlane = iChannels
+      iChannels = n
+
+      local block = nn.Sequential()
+      local s = nn.Sequential()
+      if type == 'both_preact' then
+         block:add(ShareGradInput(SBatchNorm(nInputPlane), 'preact'))
+         block:add(ReLU(true))
+      elseif type ~= 'no_preact' then
+         s:add(SBatchNorm(nInputPlane))
+         s:add(ReLU(true))
+      end
+      s:add(Convolution(nInputPlane,n,3,3,stride,stride,1,1))
+      s:add(SBatchNorm(n))
+      s:add(ReLU(true))
+      s:add(Convolution(n,n,3,3,1,1,1,1))
+
+      local prob = (layer_idx - 1) * (1.0 - opt.swapout) / (depth - 2.0)
+      layer_idx = layer_idx + 2
+
+      return block
+         :add(nn.ConcatTable()
+            :add(s)
+            :add(shortcut(nInputPlane, n, stride)))
+         :add(nn.Swapout({prob, prob}))
    end
 
    -- The bottleneck residual layer for 50, 101, and 152 layer networks
@@ -163,11 +195,16 @@ local function createModel(opt)
       iChannels = 16
       print(' | ResNet-' .. depth .. ' CIFAR-10')
 
+      local block = basicblock
+      if opt.swapout ~= 'none' then
+         block = basicblock_swapout
+      end
+
       -- The ResNet CIFAR-10 model
       model:add(Convolution(3,16,3,3,1,1,1,1))
-      model:add(layer(basicblock, 16, n, 1))
-      model:add(layer(basicblock, 32, n, 2))
-      model:add(layer(basicblock, 64, n, 2))
+      model:add(layer(block, 16, n, 1))
+      model:add(layer(block, 32, n, 2))
+      model:add(layer(block, 64, n, 2))
       model:add(ShareGradInput(SBatchNorm(iChannels), 'last'))
       model:add(ReLU(true))
       model:add(Avg(8, 8, 1, 1))
