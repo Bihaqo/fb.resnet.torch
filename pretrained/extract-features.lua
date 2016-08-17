@@ -90,7 +90,6 @@ else -- single file mode ; collect file from command line
     --     end
     -- end
 end
-print(list_of_filenames)
 
 local number_of_files = #list_of_filenames
 
@@ -157,6 +156,9 @@ for i=1,number_of_files,opt.batchSize do
        features = torch.FloatTensor(number_of_files, output:size(2)):zero()
    end
    features[{ {i, i-1+image_count}, {}  } ]:copy(output)
+   local curr_batch = (i - 1) / opt.batchSize + 1
+   local num_batches = math.ceil(number_of_files / opt.batchSize)
+   print(string.format('Finished batch %d/%d', curr_batch, num_batches))
 
 end
 
