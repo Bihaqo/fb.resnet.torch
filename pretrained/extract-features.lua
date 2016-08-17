@@ -56,9 +56,24 @@ end
 if paths.dirp(opt.data) then -- batch mode ; collect file from directory
 
     local lfs  = require 'lfs'
-
-    for file in lfs.dir(opt.data) do -- get the list of the files
-        if file~="." and file~=".." then
+    if opt.recursive then
+        function recursive_files(path)
+            for file in lfs.dir(path) do
+                if file ~= "." and file ~= ".." then
+                    local f = path..'/'..file
+                    local attr = lfs.attributes (f)
+                    assert (type(attr) == "table")
+                    if attr.mode == "directory" then
+                        recursive_files(f)
+                    else
+                        table.insert(list_of_filenames, path..'/'..file)
+                    end
+                end
+            end
+        end
+        recursive_files(opt.data)
+    else
+        for file in paths.iterfiles(opt.data) do -- get the list of the files
             table.insert(list_of_filenames, opt.data..'/'..file)
         end
     end
@@ -75,6 +90,7 @@ else -- single file mode ; collect file from command line
     --     end
     -- end
 end
+print(list_of_filenames)
 
 local number_of_files = #list_of_filenames
 
