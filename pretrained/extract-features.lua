@@ -78,7 +78,7 @@ end
 
 local number_of_files = #list_of_filenames
 
-if opt.batch_size > number_of_files then opt.batch_size = number_of_files end
+if opt.batchSize > number_of_files then opt.batchSize = number_of_files end
 
 -- Load the model
 local model = torch.load(opt.model):cuda()
@@ -109,12 +109,12 @@ local transform = t.Compose{
 
 local features
 
-for i=1,number_of_files,batch_size do
-    local img_batch = torch.FloatTensor(opt.batch_size, 3, 224, 224) -- batch numbers are the 3 channels and size of transform
+for i=1,number_of_files,opt.batchSize do
+    local img_batch = torch.FloatTensor(opt.batchSize, 3, 224, 224) -- batch numbers are the 3 channels and size of transform
 
     -- preprocess the images for the batch
     local image_count = 0
-    for j=1,batch_size do
+    for j=1,opt.batchSize do
         img_name = list_of_filenames[i+j-1]
 
         if img_name  ~= nil then
@@ -126,7 +126,7 @@ for i=1,number_of_files,batch_size do
     end
 
     -- if this is last batch it may not be the same size, so check that
-    if image_count ~= batch_size then
+    if image_count ~= opt.batchSize then
         img_batch = img_batch[{{1,image_count}, {}, {}, {} } ]
     end
 
